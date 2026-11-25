@@ -25,3 +25,12 @@
 
 .feedback-link-note{font-size:11px!important;line-height:1.7!important;color:#627267!important;padding:12px 14px;background:#f4f8f2;border-radius:6px;max-width:unset!important}
 .feedback-link-note a{color:#356f46;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+
+.feedback-return-link{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 18px;padding:15px 17px;border:1px solid #dce8dc;border-radius:8px;background:#f7faf5;color:#617266;text-align:left;font:500 11px Manrope,sans-serif;cursor:pointer;transition:border .2s,background .2s}
+.feedback-return-link:hover{border-color:#8eb99a;background:#f0f7ef}
+.feedback-return-link strong{display:inline-flex;align-items:center;gap:6px;color:#2e6840;font-weight:700}
+.application-retrieval{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;margin:18px 0;padding:17px;background:#fff;border:1px solid #e5ece1;border-radius:8px}
+.application-retrieval div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.application-retrieval span{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#89958a}
+.application-retrieval strong{font-size:11px;line-height:1.5;color:#304b37;overflow-wrap:anywhere}
+@media(max-width:600px){.application-retrieval{grid-template-columns:1fr}}
