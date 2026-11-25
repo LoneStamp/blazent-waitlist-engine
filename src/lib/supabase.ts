@@ -30,6 +30,45 @@ export async function insertFoundingLeaderApplication(payload: Record<string, un
   }
 }
 
+
+export type FeedbackApplication = {
+  full_name: string;
+  email: string;
+  platform: string;
+  discipleship_system: string;
+  disciple_count: string;
+  church_ministry: string | null;
+  city_country: string | null;
+  leadership_role: string | null;
+  threads_username: string | null;
+  created_at: string;
+  status: string;
+  feedback_submitted_at: string | null;
+};
+
+export async function getFoundingLeaderForFeedback(input: { feedbackToken: string; email: string }) {
+  if (!supabaseUrl || !supabaseAnonKey) return { error: new Error('Supabase is not configured.'), application: null as FeedbackApplication | null };
+  try {
+    const response = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_founding_leader_for_feedback`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({
+        p_feedback_token: input.feedbackToken,
+        p_email: input.email.trim().toLowerCase(),
+      }),
+    });
+    if (!response.ok) {
+      let details: { message?: string } = {};
+      try { details = await response.json(); } catch { /* empty response */ }
+      return { error: new Error(details.message || 'We could not match that email to this feedback link.'), application: null as FeedbackApplication | null };
+    }
+    const application = await response.json() as FeedbackApplication;
+    return { error: null, application };
+  } catch {
+    return { error: new Error('Network error. Please try again.'), application: null as FeedbackApplication | null };
+  }
+}
+
 export async function submitFoundingLeaderFeedback(input: { feedbackToken: string; email: string; feedback: string; selfReportedDiscipleCount: number; selfReportedTestingDays: number }) {
   if (!supabaseUrl || !supabaseAnonKey) return { error: new Error('Supabase is not configured.') };
   try {
