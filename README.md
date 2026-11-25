@@ -1,4 +1,4 @@
-# Vineward — Founding Leaders Program
+# Vineward — Founding Leaders Program (V4)
 
 A responsive React + TypeScript + Vite website for recruiting and qualifying founding leaders to test Vineward with their discipleship groups.
 
@@ -49,7 +49,7 @@ If the CLI asks for a database password, use the database password for that Supa
 
 ### 3. Apply the schema using migrations
 
-The migration is in `supabase/migrations/20261125190000_create_founding_leader_applications.sql`:
+The repository contains three ordered migrations: the baseline application table, tester verification/rewards, and private feedback-application retrieval. Apply all pending migrations with:
 
 ```powershell
 supabase db push
@@ -121,13 +121,14 @@ The website promises eligible, selected founding testers: (1) 12 months of premi
 
 A registration checkbox is not proof of completion. The workflow separates applicant self-report from administrator-verified participation.
 
-### What the new migration adds
+### What the new migrations add
 
-`supabase/migrations/20261125200000_add_tester_verification_and_rewards.sql`
+- `supabase/migrations/20261125200000_add_tester_verification_and_rewards.sql`
+- `supabase/migrations/20261125210000_feedback_application_retrieval.sql`
 
 - Admin verification fields: `testing_started_at`, `testing_completed_at`, `verified_active_days`, `participating_disciple_count`, `usage_verified_at`, and `disciples_verified_at`.
 - A feedback table with one final report per application.
-- A public feedback RPC that validates the opaque feedback token and application email. The website displays the feedback form after application submission; the feedback report is recorded but self-reported days/participants are not treated as verified.
+- A public feedback RPC that validates the opaque feedback token and application email. A separate read-only RPC retrieves only the applicant details needed for the feedback confirmation screen after both values match. The feedback report is recorded but self-reported days/participants are not treated as verified.
 - A database trigger that calculates `reward_eligible` only when all conditions are met:
   - application is selected/invited/active/completed;
   - testing start and completion timestamps are recorded and at least 14 days apart;
@@ -200,3 +201,14 @@ This website cannot independently prove how often the Vineward mobile app was us
 ### Feedback privacy
 
 The website returns no applicant directory and does not expose the feedback table. Feedback is submitted through a `SECURITY DEFINER` RPC using a random per-application feedback token plus the application email. Never expose a Supabase service-role key in the browser.
+
+
+## Returning testers and application drafts (V4)
+
+- An unfinished application is temporarily saved in `sessionStorage` for the current browser tab. It is a draft only and is not sent to Supabase until the applicant submits the form.
+- After a successful application, the private feedback token is retained in `localStorage` on that browser for convenience. The application confirmation URL also contains the token so the tester can keep the private link.
+- A returning tester selects **Already tested? I’m ready to give feedback**, enters the application email, and the site calls `get_founding_leader_for_feedback` with both the email and private token.
+- The RPC returns only the application summary fields shown in the feedback portal. It does not expose an applicant list or grant direct table access.
+- The tester can then submit one feedback report. The page displays a confirmation only after the feedback RPC succeeds.
+
+**Email verification boundary:** this release verifies that the entered email matches the application associated with the private token. It does not send an OTP or prove inbox ownership. For true email-address ownership verification, configure an email OTP flow (for example, Supabase Auth with verified email) before describing this step as email verification. The private token must be kept confidential; anyone with both the token link and matching email can access the feedback portal.
