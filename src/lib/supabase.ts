@@ -12,7 +12,7 @@ function headers() {
 }
 
 export async function insertFoundingLeaderApplication(payload: Record<string, unknown>) {
-  if (!supabaseUrl || !supabaseAnonKey) return { error: new Error('Supabase is not configured.'), id: null as string | null, feedbackToken: null as string | null };
+  if (!supabaseUrl || !supabaseAnonKey) return { error: new Error('Supabase is not configured.'), id: null as string | null };
   try {
     const response = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/founding_leader_applications`, {
       method: 'POST',
@@ -22,11 +22,11 @@ export async function insertFoundingLeaderApplication(payload: Record<string, un
     if (!response.ok) {
       let details: { code?: string; message?: string } = {};
       try { details = await response.json(); } catch { /* empty response */ }
-      return { error: Object.assign(new Error(details.message || 'Application could not be saved.'), { code: details.code }), id: null as string | null, feedbackToken: null as string | null };
+      return { error: Object.assign(new Error(details.message || 'Application could not be saved.'), { code: details.code }), id: null as string | null };
     }
-    return { error: null, id: null as string | null, feedbackToken: payload.feedback_token as string | undefined };
+    return { error: null, id: null as string | null };
   } catch {
-    return { error: new Error('Network error. Please try again.'), id: null as string | null, feedbackToken: null as string | null };
+    return { error: new Error('Network error. Please try again.'), id: null as string | null };
   }
 }
 
@@ -46,21 +46,20 @@ export type FeedbackApplication = {
   feedback_submitted_at: string | null;
 };
 
-export async function getFoundingLeaderForFeedback(input: { feedbackToken: string; email: string }) {
+export async function getFoundingLeaderForFeedback(input: { email: string }) {
   if (!supabaseUrl || !supabaseAnonKey) return { error: new Error('Supabase is not configured.'), application: null as FeedbackApplication | null };
   try {
     const response = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_founding_leader_for_feedback`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({
-        p_feedback_token: input.feedbackToken,
         p_email: input.email.trim().toLowerCase(),
       }),
     });
     if (!response.ok) {
       let details: { message?: string } = {};
       try { details = await response.json(); } catch { /* empty response */ }
-      return { error: new Error(details.message || 'We could not match that email to this feedback link.'), application: null as FeedbackApplication | null };
+      return { error: new Error(details.message || 'No application was found for that email address.'), application: null as FeedbackApplication | null };
     }
     const application = await response.json() as FeedbackApplication;
     return { error: null, application };
@@ -69,14 +68,13 @@ export async function getFoundingLeaderForFeedback(input: { feedbackToken: strin
   }
 }
 
-export async function submitFoundingLeaderFeedback(input: { feedbackToken: string; email: string; feedback: string; selfReportedDiscipleCount: number; selfReportedTestingDays: number }) {
+export async function submitFoundingLeaderFeedback(input: { email: string; feedback: string; selfReportedDiscipleCount: number; selfReportedTestingDays: number }) {
   if (!supabaseUrl || !supabaseAnonKey) return { error: new Error('Supabase is not configured.') };
   try {
     const response = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/submit_founding_leader_feedback`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({
-        p_feedback_token: input.feedbackToken,
         p_email: input.email.trim().toLowerCase(),
         p_feedback: input.feedback.trim(),
         p_self_reported_disciple_count: input.selfReportedDiscipleCount,
