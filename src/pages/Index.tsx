@@ -10,16 +10,11 @@ type FormState = {
 };
 const initial: FormState = { full_name:'', email:'', platform:'', discipleship_system:'', disciple_count:'', church_ministry:'', city_country:'', leadership_role:'', threads_username:'', has_three_disciples:false, commits_14_days:false, agrees_feedback:false, privacy_consent:false };
 const DRAFT_KEY = 'vineward_founder_application_draft_v1';
-const FEEDBACK_TOKEN_KEY = 'vineward_founder_feedback_token_v1';
 function restoreDraft(): FormState {
   try {
     const saved = sessionStorage.getItem(DRAFT_KEY);
     return saved ? { ...initial, ...JSON.parse(saved) } : initial;
   } catch { return initial; }
-}
-function restoreFeedbackToken(): string {
-  try { return new URLSearchParams(window.location.search).get('feedback') || localStorage.getItem(FEEDBACK_TOKEN_KEY) || ''; }
-  catch { return new URLSearchParams(window.location.search).get('feedback') || ''; }
 }
 const fadeUp = { hidden:{opacity:0,y:22}, show:{opacity:1,y:0,transition:{duration:.65,ease:[.22,1,.36,1]}} };
 
@@ -28,9 +23,9 @@ function SectionLabel({number,children}:{number:string;children:ReactNode}) { re
 
 export default function Index() {
   const [form,setForm] = useState<FormState>(restoreDraft);
+  const [feedbackMode,setFeedbackMode] = useState(()=>new URLSearchParams(window.location.search).has('feedback'));
   const [status,setStatus] = useState<'idle'|'sending'|'success'|'error'>(()=>new URLSearchParams(window.location.search).has('feedback')?'success':'idle');
   const [error,setError] = useState('');
-  const [feedbackToken,setFeedbackToken] = useState(restoreFeedbackToken);
   const [feedbackVerified,setFeedbackVerified] = useState<FeedbackApplication|null>(null);
   const [feedbackLookupError,setFeedbackLookupError] = useState('');
   const [feedbackLookupStatus,setFeedbackLookupStatus] = useState<'idle'|'checking'|'verified'|'error'>('idle');
@@ -52,25 +47,22 @@ export default function Index() {
     if (!ready) { setError('Please complete all required fields and confirmations.'); return; }
     if (!isSupabaseConfigured) { setStatus('error'); setError('Registration is temporarily unavailable. Please try again later.'); return; }
     setStatus('sending');
-    const payload = { ...form, email:form.email.trim().toLowerCase(), full_name:form.full_name.trim(), church_ministry:form.church_ministry.trim()||null, city_country:form.city_country.trim()||null, leadership_role:form.leadership_role.trim()||null, threads_username:form.threads_username.trim().replace(/^@/, '')||null, acquisition_source:source.source, acquisition_medium:source.medium, acquisition_campaign:source.campaign, referrer:source.referrer, feedback_token:crypto.randomUUID(), status:'applicant', offer_terms_version:'founding-2026-v1' };
+    const payload = { ...form, email:form.email.trim().toLowerCase(), full_name:form.full_name.trim(), church_ministry:form.church_ministry.trim()||null, city_country:form.city_country.trim()||null, leadership_role:form.leadership_role.trim()||null, threads_username:form.threads_username.trim().replace(/^@/, '')||null, acquisition_source:source.source, acquisition_medium:source.medium, acquisition_campaign:source.campaign, referrer:source.referrer, status:'applicant', offer_terms_version:'founding-2026-v1' };
     const result = await insertFoundingLeaderApplication(payload);
     if (result.error) { setStatus('error'); setError((result.error as Error & {code?:string}).code === '23505' ? 'This email has already been registered. If you need to update your application, contact the Vineward team.' : 'We could not submit your application. Please check your connection and try again.'); return; }
-    setFeedbackToken(result.feedbackToken || '');
     setFeedbackEmail(form.email.trim().toLowerCase());
-    if (result.feedbackToken) { try { localStorage.setItem(FEEDBACK_TOKEN_KEY,result.feedbackToken); } catch { /* optional convenience */ } }
     try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* optional convenience */ }
-    if (result.feedbackToken) window.history.replaceState({}, '', `${window.location.pathname}?feedback=${encodeURIComponent(result.feedbackToken)}#apply`);
     setStatus('success'); setForm(initial);
   };
   const verifyFeedbackEmail = async () => {
     setFeedbackLookupError('');
     setFeedbackLookupStatus('checking');
-    if (!feedbackToken || !feedbackEmail.trim()) {
+    if (!feedbackEmail.trim()) {
       setFeedbackLookupStatus('error');
-      setFeedbackLookupError('Open your private feedback link and enter the email address used for your application.');
+      setFeedbackLookupError('Enter the email address you used when applying.');
       return;
     }
-    const result = await getFoundingLeaderForFeedback({ feedbackToken, email: feedbackEmail });
+    const result = await getFoundingLeaderForFeedback({ email: feedbackEmail });
     if (result.error || !result.application) {
       setFeedbackLookupStatus('error');
       setFeedbackLookupError(result.error?.message || 'We could not verify this application.');
@@ -138,15 +130,16 @@ export default function Index() {
 
       <section className="application-section" id="apply"><div className="section-wrap application-grid"><div className="application-aside"><SectionLabel number="04">YOUR NEXT STEP</SectionLabel><h2>Help us build<br/>what comes <em>next.</em></h2><p>Share a little about yourself and the group you lead. We'll review your application and email you when the testing round is ready.</p><div className="aside-detail"><ShieldCheck size={18}/><span>Your information is used only to review and coordinate your Vineward testing application.</span></div><div className="aside-foot"><span>VINEWARD / FOUNDING LEADERS</span><Sprout size={19}/></div></div>
         <div className="form-panel"><div className="form-heading"><div><span className="form-kicker">APPLICATION FORM</span><h3>Let's get to know you.</h3></div><span className="required-note"><i>*</i> Required fields</span></div>
-          {status==='success' ? <div className="success-state"><div className="success-icon"><CheckCircle2 size={30}/></div><span className="form-kicker">{new URLSearchParams(window.location.search).has('feedback') ? 'FEEDBACK PORTAL' : 'APPLICATION RECEIVED'}</span><h3>{new URLSearchParams(window.location.search).has('feedback') ? 'Let’s find your application.' : 'Thank you for stepping forward.'}</h3><p>{new URLSearchParams(window.location.search).has('feedback') ? 'Enter the email address you used when applying. We’ll match it with the private feedback link and retrieve your saved application details.' : 'Your application has been submitted. If selected, you will receive the testing instructions by email. Your 12-month premium benefit is earned only after the selected testing program is completed and Vineward verifies the requirements.'}</p>
+          {status==='success' ? <div className="success-state"><div className="success-icon"><CheckCircle2 size={30}/></div><span className="form-kicker">{feedbackMode ? 'FEEDBACK PORTAL' : 'APPLICATION RECEIVED'}</span><h3>{feedbackMode ? 'Let’s find your application.' : 'Thank you for stepping forward.'}</h3><p>{feedbackMode ? 'Enter the email address you used when applying. We’ll find your saved application and bring your details back.' : 'Your application has been submitted. If selected, you will receive the testing instructions by email. Your 12-month premium benefit is earned only after the selected testing program is completed and Vineward verifies the requirements.'}</p>
+            {!feedbackMode && <button type="button" className="feedback-return-link" onClick={()=>{setFeedbackMode(true);setFeedbackVerified(null);setFeedbackEmail('');setFeedbackLookupError('');setFeedbackLookupStatus('idle');}}>Already tested? <strong>I’m ready to give feedback <ArrowUpRight size={15}/></strong></button>}
             <div className="commitment-box"><div className="commitment-title"><ShieldCheck size={17}/><b>How reward qualification works</b></div><p>Vineward's team will verify at least 14 days of actual use, at least 3 participating disciples, and your submitted feedback. Only then will your application become reward-eligible. Final reward activation is approved by the Vineward team.</p></div>
-            {feedbackToken && <div className="feedback-form">
+            {feedbackMode && <div className="feedback-form">
               <h3>{feedbackVerified ? 'Your application is found.' : 'Already tested? Ready to give feedback?'}</h3>
-              <p>{feedbackVerified ? 'Please review the details below before submitting your testing experience.' : 'Enter the same email address you used when applying. Your application details will appear only after the email matches this private feedback link.'}</p>
+              <p>{feedbackVerified ? 'Please review the details below before submitting your testing experience.' : 'Enter the email address you used when applying. We will find your application and restore the information you submitted.'}</p>
               {!feedbackVerified ? <>
                 <Field label="Application email address" required><input type="email" value={feedbackEmail} onChange={e=>{setFeedbackEmail(e.target.value);setFeedbackLookupStatus('idle');setFeedbackLookupError('');}} autoComplete="email" placeholder="you@example.com" required/></Field>
                 {feedbackLookupError && <div className="form-error" role="alert">{feedbackLookupError}</div>}
-                <button className="button button-primary submit-button" type="button" onClick={verifyFeedbackEmail} disabled={feedbackLookupStatus==='checking'||!feedbackEmail.trim()}>{feedbackLookupStatus==='checking'?'Checking application…':'Confirm email and retrieve application'} <ArrowUpRight size={17}/></button>
+                <button className="button button-primary submit-button" type="button" onClick={verifyFeedbackEmail} disabled={feedbackLookupStatus==='checking'||!feedbackEmail.trim()}>{feedbackLookupStatus==='checking'?'Checking application…':'Find my application'} <ArrowUpRight size={17}/></button>
               </> : <>
                 <div className="application-retrieval">
                   <div><span>Applicant</span><strong>{feedbackVerified.full_name}</strong></div>
@@ -164,11 +157,11 @@ export default function Index() {
                   <div className="form-row"><Field label="Testing days (self-reported)" required><input type="number" min="0" max="365" value={feedbackDays} onChange={e=>setFeedbackDays(e.target.value)} required/></Field><Field label="Disciples who participated (self-reported)" required><input type="number" min="0" max="500" value={feedbackDisciples} onChange={e=>setFeedbackDisciples(e.target.value)} required/></Field></div>
                   <Field label="What worked, what was difficult, and what should we improve?" required><textarea value={feedbackText} onChange={e=>setFeedbackText(e.target.value)} minLength={20} maxLength={10000} rows={5} placeholder="Share your honest experience (at least 20 characters)..." required/></Field>
                   {feedbackError && <div className="form-error" role="alert">{feedbackError}</div>}
-                  <button className="button button-primary submit-button" type="button" disabled={feedbackStatus==='sending'||feedbackText.trim().length<20} onClick={async()=>{setFeedbackError('');setFeedbackStatus('sending');const result=await submitFoundingLeaderFeedback({feedbackToken,email:feedbackEmail,feedback:feedbackText,selfReportedDiscipleCount:Number(feedbackDisciples),selfReportedTestingDays:Number(feedbackDays)});if(result.error){setFeedbackStatus('error');setFeedbackError(result.error.message);}else{setFeedbackStatus('success');setFeedbackVerified({...feedbackVerified,feedback_submitted_at:new Date().toISOString()});}}}>{feedbackStatus==='sending'?'Submitting feedback…':'Submit testing feedback'} <ArrowUpRight size={17}/></button>
+                  <button className="button button-primary submit-button" type="button" disabled={feedbackStatus==='sending'||feedbackText.trim().length<20} onClick={async()=>{setFeedbackError('');setFeedbackStatus('sending');const result=await submitFoundingLeaderFeedback({email:feedbackEmail,feedback:feedbackText,selfReportedDiscipleCount:Number(feedbackDisciples),selfReportedTestingDays:Number(feedbackDays)});if(result.error){setFeedbackStatus('error');setFeedbackError(result.error.message);}else{setFeedbackStatus('success');setFeedbackVerified(current=>current?{...current,feedback_submitted_at:new Date().toISOString()}:current);}}}>{feedbackStatus==='sending'?'Submitting feedback…':'Submit testing feedback'} <ArrowUpRight size={17}/></button>
                 </>}
               </>}
             </div>}
-            <button className="button button-outline" onClick={()=>setStatus('idle')}>Submit another application <ArrowUpRight size={16}/></button></div> : <><button type="button" className="feedback-return-link" onClick={()=>{if(feedbackToken){setFeedbackLookupError('');window.history.replaceState({},'',`${window.location.pathname}?feedback=${encodeURIComponent(feedbackToken)}#apply`);setStatus('success');}else{setError('To protect your application, open the private feedback link from your application confirmation email or the same browser where you applied.');}}}>Already tested? <strong>I’m ready to give feedback <ArrowUpRight size={15}/></strong></button><form onSubmit={submit}>
+            <button className="button button-outline" onClick={()=>{setFeedbackMode(false);setStatus('idle');}}>Submit another application <ArrowUpRight size={16}/></button></div> : <><button type="button" className="feedback-return-link" onClick={()=>{setFeedbackMode(true);setFeedbackVerified(null);setFeedbackEmail('');setFeedbackLookupError('');setFeedbackLookupStatus('idle');setStatus('success');}}>Already tested? <strong>I’m ready to give feedback <ArrowUpRight size={15}/></strong></button><form onSubmit={submit}>
             <div className="form-row"><Field label="Full name" required><input value={form.full_name} onChange={e=>update('full_name',e.target.value)} placeholder="Your full name" autoComplete="name" required/></Field><Field label="Email address" required hint="Use the email connected to your Google Play or Apple account."><input type="email" value={form.email} onChange={e=>update('email',e.target.value)} placeholder="you@example.com" autoComplete="email" required/></Field></div>
             <Field label="Which device will you use?" required><div className="choice-row"><button type="button" className={`choice ${form.platform==='Android'?'selected':''}`} onClick={()=>update('platform','Android')}><span className="choice-radio"/><span><b>Android</b><small>Google Play</small></span></button><button type="button" className={`choice ${form.platform==='iOS'?'selected':''}`} onClick={()=>update('platform','iOS')}><span className="choice-radio"/><span><b>iPhone</b><small>Apple App Store</small></span></button></div></Field>
             <Field label="Which discipleship system best describes your ministry?" required><div className="select-wrap"><select value={form.discipleship_system} onChange={e=>update('discipleship_system',e.target.value)} required><option value="">Select your discipleship system</option><option value="G12 Vision">Currently implementing the G12 Vision</option><option value="Adapting G12">Adapting the G12 discipleship system</option></select><ChevronDown size={17}/></div></Field>
