@@ -203,12 +203,11 @@ This website cannot independently prove how often the Vineward mobile app was us
 The website returns no applicant directory and does not expose the feedback table. Feedback is submitted through a `SECURITY DEFINER` RPC using a random per-application feedback token plus the application email. Never expose a Supabase service-role key in the browser.
 
 
-## Returning testers and application drafts (V4)
+## Returning testers and application drafts (V5)
 
 - An unfinished application is temporarily saved in `sessionStorage` for the current browser tab. It is a draft only and is not sent to Supabase until the applicant submits the form.
-- After a successful application, the private feedback token is retained in `localStorage` on that browser for convenience. The application confirmation URL also contains the token so the tester can keep the private link.
-- A returning tester selects **Already tested? I’m ready to give feedback**, enters the application email, and the site calls `get_founding_leader_for_feedback` with both the email and private token.
-- The RPC returns only the application summary fields shown in the feedback portal. It does not expose an applicant list or grant direct table access.
-- The tester can then submit one feedback report. The page displays a confirmation only after the feedback RPC succeeds.
+- A returning tester clicks **Already tested? I’m ready to give feedback**, enters the email used on the original application, and clicks **Find my application**.
+- Supabase matches that email to the unique application record and returns the application details displayed in the feedback form.
+- Feedback is submitted against that matched application and saved only after the feedback RPC succeeds. No private feedback link, local token, or OTP is required.
 
-**Email verification boundary:** this release verifies that the entered email matches the application associated with the private token. It does not send an OTP or prove inbox ownership. For true email-address ownership verification, configure an email OTP flow (for example, Supabase Auth with verified email) before describing this step as email verification. The private token must be kept confidential; anyone with both the token link and matching email can access the feedback portal.
+**Privacy note:** this intentionally simple email-only lookup lets someone who knows an applicant's exact email retrieve the limited application summary returned to the feedback page. The RPC does not expose an applicant list or direct table access. If stronger proof of email ownership is needed later, add OTP verification as a separate enhancement.
